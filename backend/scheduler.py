@@ -108,20 +108,13 @@ def _run_single_scraper(scraper, db):
         return source, jobs, None, duration, "ok"
 
 
-def run_scrape_phase(config, db, run_id: str = "") -> dict:
-    """
-    Phase 1: Scrape all sources in parallel → filter → store raw (unscored) jobs.
-    Returns stats dict.
-    """
-    scrape_start = time.time()
+def run_scrapers(scrapers, db, max_workers: int = 4) -> tuple[list, dict]:
+    """Execute scraper adapters concurrently and return jobs plus per-source stats."""
     all_raw_jobs = []
     source_results = {}
+    worker_count = min(max(1, max_workers), len(scrapers)) if scrapers else 1
 
-    scrapers = get_enabled_scrapers(config)
-
-    # Run all scrapers in parallel
-    max_workers = min(4, len(scrapers)) if scrapers else 1
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
         futures = {
             executor.submit(_run_single_scraper, scraper, db): scraper
             for scraper in scrapers
@@ -143,7 +136,23 @@ def run_scrape_phase(config, db, run_id: str = "") -> dict:
             except Exception as e:
                 source = scraper.source_name
                 logger.exception(f"[scheduler] [{source}] Thread crashed: {e}")
-                source_results[source] = {"status": "crash", "jobs": 0, "error": str(e)}
+                source_results[source] = {
+                    "status": "crash",
+                    "jobs": 0,
+                    "error": str(e),
+                }
+
+    return all_raw_jobs, source_results
+
+
+def run_scrape_phase(config, db, run_id: str = "") -> dict:
+    """
+    Phase 1: Scrape all sources in parallel → filter → store raw (unscored) jobs.
+    Returns stats dict.
+    """
+    scrape_start = time.time()
+    scrapers = get_enabled_scrapers(config)
+    all_raw_jobs, source_results = run_scrapers(scrapers, db, max_workers=4)
 
     # Filter
     hard_filter = HardFilter(config, db)
@@ -208,6 +217,7 @@ def run_score_phase(config, db) -> dict:
             company_size=job_dict.get("company_size"),
             salary_range=job_dict.get("salary_range"),
             stack_mentioned=job_dict.get("stack_mentioned", []),
+            requisition_id=job_dict.get("requisition_id", ""),
         )
         should_reject, reason = hard_filter._should_reject(raw_job)
         if should_reject:

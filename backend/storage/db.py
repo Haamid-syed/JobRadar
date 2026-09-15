@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -15,7 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from loguru import logger
 
-from scrapers.base import RawJob
+from scrapers.base import JobIdentity, RawJob, canonical_job_id
 
 
 # ─── SQLAlchemy Models ────────────────────────────────────────────────────────
@@ -42,6 +42,7 @@ class JobModel(Base):
     company_size = Column(Text)
     stack_mentioned = Column(Text)  # JSON array
     boost_signals = Column(Text)  # JSON dict — persisted filter signals for scoring
+    requisition_id = Column(Text)
 
     score_role_match = Column(Integer, default=0)
     score_seniority = Column(Integer, default=0)
@@ -152,6 +153,10 @@ class Database:
                     logger.info("[db] Auto-Migration: Adding missing column 'salary_range' to 'jobs' table")
                     conn.exec_driver_sql("ALTER TABLE jobs ADD COLUMN salary_range TEXT")
 
+                if "requisition_id" not in existing_jobs_cols:
+                    logger.info("[db] Auto-Migration: Adding missing column 'requisition_id' to 'jobs' table")
+                    conn.exec_driver_sql("ALTER TABLE jobs ADD COLUMN requisition_id TEXT")
+
                 # 2. Migrate "scraper_health" table
                 result_health = conn.exec_driver_sql("PRAGMA table_info(scraper_health)")
                 existing_health_cols = {row[1] for row in result_health.all()}
@@ -216,6 +221,7 @@ class Database:
                         company_size=job_data["company_size"],
                         stack_mentioned=job_data["stack_mentioned"],
                         boost_signals=json.dumps(signals),
+                        requisition_id=job_data["requisition_id"],
                         score_verdict="unscored",
                         status="new",
                     )
@@ -334,6 +340,7 @@ class Database:
                             salary_range=job_data["salary_range"],
                             company_size=job_data["company_size"],
                             stack_mentioned=job_data["stack_mentioned"],
+                            requisition_id=job_data["requisition_id"],
                             score_role_match=score.get("role_match", 0),
                             score_seniority=score.get("seniority_fit", 0),
                             score_reply_odds=score.get("reply_odds", 0),
@@ -503,6 +510,37 @@ class Database:
             )
             return {row[0]: row[1] for row in rows}
 
+    def get_existing_job_identities(
+        self, canonical_ids: List[str]
+    ) -> Dict[str, List[JobIdentity]]:
+        """Return stored identity evidence for requested company/title groups."""
+        if not canonical_ids:
+            return {}
+
+        wanted = set(canonical_ids)
+        with self._session() as session:
+            rows = session.query(
+                JobModel.company,
+                JobModel.title,
+                JobModel.apply_url,
+                JobModel.location,
+                JobModel.requisition_id,
+            ).all()
+            existing: Dict[str, List[JobIdentity]] = {}
+            for company, title, apply_url, location, requisition_id in rows:
+                canonical_id = canonical_job_id(company, title)
+                if canonical_id in wanted:
+                    existing.setdefault(canonical_id, []).append(
+                        JobIdentity(
+                            company=company,
+                            title=title,
+                            apply_url=apply_url or "",
+                            location=location or "",
+                            requisition_id=requisition_id or "",
+                        )
+                    )
+            return existing
+
     # ─── Scraper Health ───────────────────────────────────────────────────────
 
     def get_scraper_health(self, source: str) -> ScraperHealthModel:
@@ -657,6 +695,7 @@ class Database:
             "scraped_at": job.scraped_at.isoformat() if job.scraped_at else None,
             "salary_range": job.salary_range,
             "company_size": job.company_size,
+            "requisition_id": job.requisition_id or "",
             "stack_mentioned": stack,
             "boost_signals": boost_signals,
             "score_role_match": job.score_role_match or 0,
@@ -735,4 +774,3 @@ class Database:
                     "error": run.error,
                 })
             return results
-

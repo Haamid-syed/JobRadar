@@ -1,0 +1,17 @@
+{
+  "description": "Deterministic I/O-delay replay for scheduler concurrency; no live network calls.",
+  "sources": [
+    {"name": "fixture_01", "delay_ms": 60, "job_count": 40},
+    {"name": "fixture_02", "delay_ms": 65, "job_count": 40},
+    {"name": "fixture_03", "delay_ms": 70, "job_count": 40},
+    {"name": "fixture_04", "delay_ms": 75, "job_count": 40},
+    {"name": "fixture_05", "delay_ms": 60, "job_count": 40},
+    {"name": "fixture_06", "delay_ms": 65, "job_count": 40},
+    {"name": "fixture_07", "delay_ms": 70, "job_count": 40},
+    {"name": "fixture_08", "delay_ms": 75, "job_count": 40},
+    {"name": "fixture_09", "delay_ms": 60, "job_count": 40},
+    {"name": "fixture_10", "delay_ms": 65, "job_count": 40},
+    {"name": "fixture_11", "delay_ms": 70, "job_count": 40},
+    {"name": "fixture_12", "delay_ms": 75, "job_count": 40}
+  ]
+}

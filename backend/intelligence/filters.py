@@ -4,7 +4,7 @@ from typing import List, Dict, Tuple
 
 from loguru import logger
 
-from scrapers.base import RawJob
+from scrapers.base import RawJob, jobs_are_duplicates
 
 
 class HardFilter:
@@ -223,30 +223,46 @@ class HardFilter:
             else:
                 candidates.append(job)
 
-        # Cross-source dedup by canonical_id (source-agnostic)
-        # When the same job appears on multiple sources, keep the one with
-        # the richer description (more useful for LLM scoring)
+        # Group by normalized company/title, then merge only when requisition,
+        # location, or URL evidence supports the match.
         cross_dedup_count = 0
-        canonical_best: Dict[str, RawJob] = {}
+        deduped_candidates: List[RawJob] = []
+        canonical_groups: Dict[str, List[int]] = {}
         for job in candidates:
             cid = job.canonical_id
-            if cid in canonical_best:
-                existing = canonical_best[cid]
+            duplicate_index = next(
+                (
+                    index
+                    for index in canonical_groups.get(cid, [])
+                    if jobs_are_duplicates(job.identity, deduped_candidates[index].identity)
+                ),
+                None,
+            )
+            if duplicate_index is not None:
+                existing = deduped_candidates[duplicate_index]
                 if len(job.description) > len(existing.description):
-                    canonical_best[cid] = job  # Keep richer version
+                    deduped_candidates[duplicate_index] = job
                 cross_dedup_count += 1
             else:
-                canonical_best[cid] = job
-        candidates = list(canonical_best.values())
+                canonical_groups.setdefault(cid, []).append(len(deduped_candidates))
+                deduped_candidates.append(job)
+        candidates = deduped_candidates
 
         # Batch dedup against DB (1 query instead of N)
         duplicate_count = 0
         if self.db and candidates:
             candidate_ids = [job.id for job in candidates]
             existing_map = self.db.get_existing_job_ids(candidate_ids)
+            existing_identities = self.db.get_existing_job_identities(
+                [job.canonical_id for job in candidates]
+            )
             deduped: List[RawJob] = []
             for job in candidates:
-                if job.id in existing_map:
+                identity_match = any(
+                    jobs_are_duplicates(job.identity, existing)
+                    for existing in existing_identities.get(job.canonical_id, [])
+                )
+                if job.id in existing_map or identity_match:
                     duplicate_count += 1
                 else:
                     deduped.append(job)

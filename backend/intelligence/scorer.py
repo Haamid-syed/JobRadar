@@ -477,9 +477,6 @@ class GeminiScorer:
         
         Returns (score_dict, method) where method is 'llm', 'openrouter', 'local_mlx', or 'heuristic'.
         """
-        if self.use_heuristic_only:
-            return self._heuristic_score(job, boost_signals), "heuristic"
-
         # Build prompt once for all tiers
         recency_score = _compute_recency_score(boost_signals)
         reply_odds_score = _compute_reply_odds_score(boost_signals)
@@ -493,16 +490,18 @@ class GeminiScorer:
             reply_odds_score=reply_odds_score,
         )
 
-        # Tier 1: Gemini
-        try:
-            score = self._score_single(job, boost_signals)
-            logger.debug(
-                f"[scorer] Gemini scored '{job.title}' @ '{job.company}': "
-                f"{score['total']}/12 ({score['verdict']})"
-            )
-            return score, "llm"
-        except Exception as e:
-            logger.warning(f"[scorer] Gemini chain exhausted for '{job.title}': {e}")
+        # Tier 1: Gemini. Once exhausted, skip only this tier on later jobs;
+        # provider fallbacks must remain available for the rest of the batch.
+        if not self.use_heuristic_only:
+            try:
+                score = self._score_single(job, boost_signals)
+                logger.debug(
+                    f"[scorer] Gemini scored '{job.title}' @ '{job.company}': "
+                    f"{score['total']}/12 ({score['verdict']})"
+                )
+                return score, "llm"
+            except Exception as e:
+                logger.warning(f"[scorer] Gemini chain exhausted for '{job.title}': {e}")
 
         # Tier 2: OpenRouter
         score = self._try_openrouter(prompt, boost_signals)
@@ -557,6 +556,7 @@ class GeminiScorer:
                 description=job_dict.get("description", ""),
                 location=job_dict.get("location", ""),
                 job_type=job_dict.get("job_type", ""),
+                requisition_id=job_dict.get("requisition_id", ""),
             )
             
             score, method = self.score_with_fallback(raw, boost)

@@ -96,6 +96,9 @@ class ATSBoardsScraper(BaseScraper):
                     job_type=job_type,
                     posted_at=posted_at,
                     stack_mentioned=stack,
+                    requisition_id=(
+                        f"lever:{entry['id']}" if entry.get("id") else ""
+                    ),
                 ))
 
         except Exception as e:
@@ -158,6 +161,9 @@ class ATSBoardsScraper(BaseScraper):
                     job_type=job_type,
                     posted_at=posted_at,
                     stack_mentioned=stack,
+                    requisition_id=(
+                        f"greenhouse:{entry['id']}" if entry.get("id") else ""
+                    ),
                 ))
 
         except Exception as e:
@@ -216,6 +222,9 @@ class ATSBoardsScraper(BaseScraper):
                     job_type=job_type,
                     posted_at=posted_at,
                     stack_mentioned=stack,
+                    requisition_id=(
+                        f"ashby:{entry['id']}" if entry.get("id") else ""
+                    ),
                 ))
 
         except Exception as e:
