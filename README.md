@@ -4,16 +4,6 @@ JobRadar is a lightweight, lightning-fast, and highly resilient local job-huntin
 
 ---
 
-## Design System & UI Vibe
-The frontend is built using **Vite, React, TypeScript, and Tailwind CSS**, featuring an custom-curated visual design:
-- **Premium Dark Aesthetics**: A deep slate background layered with cosmic-indigo background radial gradient glows.
-- **Glassmorphism Panels**: Frosted card structures (`backdrop-blur-md`) encased in ultra-thin semi-transparent borders.
-- **Staggered Motion**: Cascading staggered entrance animations (`animation-delay`) that slide cards in a smooth waterfall flow.
-- **High-Definition Metrics**: Visual glowing rating columns inside our score cards, accompanied by breathing pulse elements representing real-time scraper statuses.
-- **Typography Integration**: Powered by Google Fonts (Outfit display font, Plus Jakarta Sans body font, and JetBrains Mono monospace indicators).
-
----
-
 ## Key Architectural Features (V2)
 
 ### 1. Two-Phase Scrape-and-Score Pipeline
