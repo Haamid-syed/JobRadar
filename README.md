@@ -1,6 +1,6 @@
 # JobRadar (V2.1) — Real-Time, Multi-Tier AI Job Aggregator & Outreach Copilot
 
-JobRadar is a lightweight, lightning-fast, and highly resilient local job-hunting platform custom-calibrated for high-signal developer profiles. It automatically aggregates, deduplicates, enriches, and scores software listings from 12 diverse sources before presenting them on a premium **Sleek Cyberpunk Glassmorphism** dashboard.
+JobRadar is a lightweight, lightning-fast, and highly resilient local job-hunting platform custom-calibrated for high-signal developer profiles. It automatically aggregates, deduplicates, enriches, and scores software listings from 12 diverse sources
 
 ---
 
